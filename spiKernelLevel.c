@@ -46,15 +46,26 @@ int initialize (void){
 
 
 
-static uint32_t readByte (uint16_t reg){
+static uint32_t readByte(uint16_t reg, int* data){
+    int data_length = 0;
+    
+    //16-bit registers: 0x480 to 0x4FE.
+    if (reg >= 0x480 && reg <=0x4FE){
+        data_length = 4; //8*4 = 32; 16-bits for address, 16-bits for data.
+        uint8_t spiBufTx [data_length] ;
+        uint8_t spiBufRx [data_length] ;
+    }
 
-    //Trasmitter and receiver buffer.
-    uint8_t spiBufTx [4] ;
-    uint8_t spiBufRx [4] ;
+    else{
+        data_length = 6; //8*6 = 48; 16-bits for address, 32-bits for data.
+        uint8_t spiBufTx [data_length] ;
+        uint8_t spiBufRx [data_length] ;
+    }
 
-    struct spi_ioc_transfer spi ;
+
+    struct spi_ioc_transfer spi;
     //First byte of the command header.
-    //It is the MSB of the address .
+    //It is the MSB of the address.
     *(spiBufTx) = (reg >> 4);
 
     //Second byte of the command header.
@@ -66,7 +77,7 @@ static uint32_t readByte (uint16_t reg){
 
     spi.tx_buf = (unsigned long)spiBufTx ;
     spi.rx_buf = (unsigned long)spiBufRx ;
-    spi.len = 4 ;
+    spi.len = data_length ;
     spi.delay_usecs = spiDelay ;
     spi.speed_hz = spiSpeed ;
     spi.bits_per_word = spiBPW ;
@@ -171,14 +182,15 @@ int main(int argc, char* argv[]){
 
 
     while (1){
-        uint16_t data = 0x12AB;
-        printf ("Sending data %x to address %x. \n", data, ADDR_PGA_GAIN);
-        writeByte (ADDR_PGA_GAIN, data) ;
+        uint16_t address = ADDR_PGA_GAIN;
+        uint32_t data = 0x;
+        printf ("Sending data %x to address %x. \n", data, address);
+        writeByte (address, data) ;
         delay(10);
 
         
         printf ("\nReceiving data\n");
-        data = readByte (ADDR_PGA_GAIN) ;
+        data = readByte(address, &data);
         // printf("RECEIVED: %.2X\n",data);
         //close(spi_fd);
         delay(1);
