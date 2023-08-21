@@ -41,7 +41,6 @@ int initialize (void){
         //Wait until the RESET_DONE signal is generated.
     }
 
-
     return 1;
 }
 
