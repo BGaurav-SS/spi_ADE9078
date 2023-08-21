@@ -14,8 +14,10 @@
 
 #include <wiringPi.h>
 
-//Use wiringPi pin 6; physical pin 22 as reset pin.
-#define IRQ1B   6
+//Use wiringPi pin 6; physical pin 22 to send command to reset the IC.
+#define RESET_PIN   6
+//Use wiringPi pin 3; physical pin 15 as pin to read interrupt from IRQ1B pin.
+#define IRQ1B_PIN   3
 
 static char *spiDevice = "/dev/spidev0.0" ;
 static uint8_t spiMode = 1 ;
@@ -26,13 +28,21 @@ static uint16_t spiDelay = 0;
 
 int spi_fd;
 
-void reset (void){
+int initialize (void){
     //Reset ADE9078
-    digitalWrite(IRQ1B, LOW);
+    digitalWrite(RESET_PIN, LOW);
     delay(50);
-    digitalWrite(IRQ1B, HIGH);
+    digitalWrite(RESET_PIN, HIGH);
     delay(50);
-    printf("\nReset Done.");
+
+
+    printf("\nWaiting for RESET_DONE signal.\n");
+    while (digitalRead(IRQ1B_PIN) != 0){
+        //Wait until the RESET_DONE signal is generated.
+    }
+
+
+    return 1;
 }
 
 
@@ -142,9 +152,13 @@ int spi_open(char* dev){
 int main(int argc, char* argv[]){
 
     wiringPiSetup();
-    pinMode(IRQ1B, OUTPUT);
+    pinMode(RESET_PIN, OUTPUT);
+    pinMode(IRQ1B_PIN, INPUT);
 
-    reset();
+    if (initialize() < 0){
+        printf("Error initializing the device.\n");
+        return -1;
+    }
 
     if(argc <= 1){
         printf("Too few args, try %s /dev/spidev0.0\n",argv[0]);
