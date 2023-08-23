@@ -46,8 +46,9 @@ int initialize (void){
 
 
 
-static uint32_t readByte(uint16_t reg, int* data){
+static uint32_t readByte(uint16_t reg, uint32_t data){
     int numberOfBytes = 0;
+    data = 0;
     
     //16-bit registers: 0x480 to 0x4FE.
     if (reg >= 0x480 && reg <=0x4FE){
@@ -60,6 +61,7 @@ static uint32_t readByte(uint16_t reg, int* data){
 
     uint8_t spiBufTx [numberOfBytes] ;
     uint8_t spiBufRx [numberOfBytes] ;
+    int fillCounter=numberOfBytes;
 
 
     struct spi_ioc_transfer spi;
@@ -73,6 +75,11 @@ static uint32_t readByte(uint16_t reg, int* data){
     //Remaining 4 bits are ignored.
     *(spiBufTx+1) = (((reg << 4) & 0x00F0)) | 0x0008;
 
+    //Remaining slots in tx-buffer is filled with zeros.
+    for (fillCounter=numberOfBytes; fillCounter > 2; fillCounter--){
+        *(spiBufTx+(numberOfBytes-1)) = 0;
+    }
+
 
     spi.tx_buf = (unsigned long)spiBufTx ;
     spi.rx_buf = (unsigned long)spiBufRx ;
@@ -82,12 +89,19 @@ static uint32_t readByte(uint16_t reg, int* data){
     spi.bits_per_word = spiBPW ;
     ioctl (spi_fd, SPI_IOC_MESSAGE(1), &spi);
 
-    printf ("\nSPI receiver buffer B1= %x\n", *spiBufRx);
-    printf ("SPI receiver buffer B2= %x\n", *(spiBufRx + 1));
-    printf ("SPI receiver buffer B3= %x\n", *(spiBufRx + 2));
-    printf ("SPI receiver buffer B4= %x\n\n", *(spiBufRx + 3));
 
-    return *(spiBufRx + 1) ;
+    for (fillCounter=2; fillCounter <numberOfBytes; fillCounter++){
+        data = data << 8;
+        data += *(spiBufRx  + fillCounter);
+    }   
+    
+    return data;
+
+
+    // printf ("SPI receiver buffer B1= %x\n", *(spiBufRx + 2));
+    // printf ("SPI receiver buffer B2= %x\n\n", *(spiBufRx + 3));
+    // printf ("SPI receiver buffer B3= %x\n\n", *(spiBufRx + 4));
+    // printf ("SPI receiver buffer B4= %x\n\n", *(spiBufRx + 5));
 }
 
 
@@ -126,16 +140,8 @@ static void writeByte (uint16_t reg, uint32_t data){
     //Actual data is in the last 16-bits.
     for (fillCounter=numberOfBytes; fillCounter > 2; fillCounter--){
         *(spiBufTx+(numberOfBytes-1)) = data & (0xFF);
-        data = (data >> 8);        
+        data = (data >> 8);    
     }
-    
-
-    // //MSB byte of the data.
-    // *(spiBufTx+2) = (data >> 8);
-
-    // //Second byte of the data.
-    // *(spiBufTx+3) = (data & 0x00FF);
-
 
     spi.tx_buf       = (unsigned long)spiBufTx ;
     spi.rx_buf       = (unsigned long)spiBufRx ;
@@ -144,6 +150,7 @@ static void writeByte (uint16_t reg, uint32_t data){
     spi.speed_hz     = spiSpeed ;
     spi.bits_per_word= spiBPW ;
     ioctl (spi_fd, SPI_IOC_MESSAGE(1), &spi) ;
+    
     // printf ("spi = %ul\n", &spi);
     // printf ("REg= %x\n", reg);
     // printf ("SPI transmit buffer B1= %x\n", *spiBufTx);
