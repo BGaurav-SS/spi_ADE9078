@@ -16,3 +16,8 @@ speed: spiSpeed.c
 wiringPi: spiWiringPi.c
 	$(CC) spiWiringPi.c -o ./build/spiWiringPi $(CFLAGS)
 	./build/spiWiringPi 
+
+test: test.c
+	$(CC) test.c -o ./test $(CFLAGS)
+	./test
+

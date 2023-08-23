@@ -47,20 +47,19 @@ int initialize (void){
 
 
 static uint32_t readByte(uint16_t reg, int* data){
-    int data_length = 0;
+    int numberOfBytes = 0;
     
     //16-bit registers: 0x480 to 0x4FE.
     if (reg >= 0x480 && reg <=0x4FE){
-        data_length = 4; //8*4 = 32; 16-bits for address, 16-bits for data.
-        uint8_t spiBufTx [data_length] ;
-        uint8_t spiBufRx [data_length] ;
+        numberOfBytes = 4; //8*4 = 32; 16-bits for command-header, 16-bits for data.
     }
 
     else{
-        data_length = 6; //8*6 = 48; 16-bits for address, 32-bits for data.
-        uint8_t spiBufTx [data_length] ;
-        uint8_t spiBufRx [data_length] ;
+        numberOfBytes = 6; //8*6 = 48; 16-bits for command-header, 32-bits for data.
     }
+
+    uint8_t spiBufTx [numberOfBytes] ;
+    uint8_t spiBufRx [numberOfBytes] ;
 
 
     struct spi_ioc_transfer spi;
@@ -77,7 +76,7 @@ static uint32_t readByte(uint16_t reg, int* data){
 
     spi.tx_buf = (unsigned long)spiBufTx ;
     spi.rx_buf = (unsigned long)spiBufRx ;
-    spi.len = data_length ;
+    spi.len = numberOfBytes ;
     spi.delay_usecs = spiDelay ;
     spi.speed_hz = spiSpeed ;
     spi.bits_per_word = spiBPW ;
@@ -93,11 +92,22 @@ static uint32_t readByte(uint16_t reg, int* data){
 
 
 
-static void writeByte (uint16_t reg, uint16_t data){
+static void writeByte (uint16_t reg, uint32_t data){
 
-    //Transmit and Receiver Buffer.
-    uint8_t spiBufTx [4] ;
-    uint8_t spiBufRx [4] ;
+    int numberOfBytes = 0;
+    
+    //16-bit registers: 0x480 to 0x4FE.
+    if (reg >= 0x480 && reg <=0x4FE){
+        numberOfBytes = 4; //8*4 = 32; 16-bits for command-header, 16-bits for data.
+    }
+
+    else{
+        numberOfBytes = 6; //8*6 = 48; 16-bits for command-header, 32-bits for data.
+    }
+
+    uint8_t spiBufTx [numberOfBytes] ;
+    uint8_t spiBufRx [numberOfBytes] ;
+    int fillCounter = numberOfBytes;
 
     struct spi_ioc_transfer spi ;
     
@@ -111,20 +121,28 @@ static void writeByte (uint16_t reg, uint16_t data){
     //Remaining 4 bits are ignored.
     *(spiBufTx+1) = ((reg << 4) & 0x00F0);
 
-    //First byte of the data.
-    *(spiBufTx+2) = (data >> 8);
+    //The transmit buffer is filled in reverse. 
+    //If 16-bit data is stored in 32-bit DATA variable, the first 16-bits are 0.
+    //Actual data is in the last 16-bits.
+    for (fillCounter=numberOfBytes; fillCounter > 2; fillCounter--){
+        *(spiBufTx+(numberOfBytes-1)) = data & (0xFF);
+        data = (data >> 8);        
+    }
+    
 
-    //Second byte of the data.
-    *(spiBufTx+3) = (data & 0x00FF);
+    // //MSB byte of the data.
+    // *(spiBufTx+2) = (data >> 8);
+
+    // //Second byte of the data.
+    // *(spiBufTx+3) = (data & 0x00FF);
 
 
-    spi.tx_buf = (unsigned long)spiBufTx ;
-
-    spi.rx_buf = (unsigned long)spiBufRx ;
-    spi.len = 4 ;
-    spi.delay_usecs = spiDelay ;
-    spi.speed_hz = spiSpeed ;
-    spi.bits_per_word = spiBPW ;
+    spi.tx_buf       = (unsigned long)spiBufTx ;
+    spi.rx_buf       = (unsigned long)spiBufRx ;
+    spi.len          = numberOfBytes ;
+    spi.delay_usecs  = spiDelay ;
+    spi.speed_hz     = spiSpeed ;
+    spi.bits_per_word= spiBPW ;
     ioctl (spi_fd, SPI_IOC_MESSAGE(1), &spi) ;
     // printf ("spi = %ul\n", &spi);
     // printf ("REg= %x\n", reg);
@@ -165,7 +183,7 @@ int main(int argc, char* argv[]){
     pinMode(RESET_PIN, OUTPUT);
     pinMode(IRQ1B_PIN, INPUT);
 
-    if (initialize() < 0){
+    if (initialize() != 1){
         printf("Error initializing the device.\n");
         return -1;
     }
@@ -183,7 +201,7 @@ int main(int argc, char* argv[]){
 
     while (1){
         uint16_t address = ADDR_PGA_GAIN;
-        uint32_t data = 0x;
+        uint32_t data = 0x12AB;
         printf ("Sending data %x to address %x. \n", data, address);
         writeByte (address, data) ;
         delay(10);
