@@ -109,7 +109,7 @@ static uint32_t readByte(uint16_t reg, uint32_t data){
 static void writeByte (uint16_t reg, uint32_t data){
 
     int numberOfBytes = 0;
-    
+
     //16-bit registers: 0x480 to 0x4FE.
     if (reg >= 0x480 && reg <=0x4FE){
         numberOfBytes = 4; //8*4 = 32; 16-bits for command-header, 16-bits for data.
@@ -139,8 +139,11 @@ static void writeByte (uint16_t reg, uint32_t data){
     //If 16-bit data is stored in 32-bit DATA variable, the first 16-bits are 0.
     //Actual data is in the last 16-bits.
     for (fillCounter=numberOfBytes; fillCounter > 2; fillCounter--){
-        *(spiBufTx+(numberOfBytes-1)) = data & (0xFF);
+        printf("Data %x\n", data);
+        *(spiBufTx+(fillCounter-1)) = data & (0xFF);
+        printf("buffer %x\n", *(spiBufTx+(fillCounter-1)));
         data = (data >> 8);    
+
     }
 
     spi.tx_buf       = (unsigned long)spiBufTx ;
@@ -153,17 +156,11 @@ static void writeByte (uint16_t reg, uint32_t data){
     
     // printf ("spi = %ul\n", &spi);
     // printf ("REg= %x\n", reg);
-    // printf ("SPI transmit buffer B1= %x\n", *spiBufTx);
-    // printf ("SPI transmit buffer B2= %x\n", *(spiBufTx + 1));
-    // printf ("SPI transmit buffer B3= %x\n", *(spiBufTx + 2));
-    // printf ("SPI transmit buffer B4= %x\n", *(spiBufTx + 3));
+    printf ("SPI transmit buffer B1= %x\n", *(spiBufTx + 2));
+    printf ("SPI transmit buffer B2= %x\n", *(spiBufTx + 3));
+    printf ("SPI transmit buffer B3= %x\n", *(spiBufTx + 4));
+    printf ("SPI transmit buffer B4= %x\n", *(spiBufTx + 5));
 
-
-    //Do data is obtained in the receiver buffer.
-//     printf ("SPI receiver buffer B1= %x\n", *spiBufRx);
-//     printf ("SPI receiver buffer B2= %x\n", *(spiBufRx + 1));
-//     printf ("SPI receiver buffer B3= %x\n", *(spiBufRx + 2));
-//     printf ("SPI receiver buffer B4= %x\n", *(spiBufRx + 3));
 }
 
 
@@ -207,18 +204,18 @@ int main(int argc, char* argv[]){
 
 
     while (1){
-        uint16_t address = ADDR_PGA_GAIN;
-        uint32_t data = 0x12AB;
+        uint16_t address = ADDR_STATUS0;
+        uint32_t data = 0xFFFFFFFF;
         printf ("Sending data %x to address %x. \n", data, address);
         writeByte (address, data) ;
-        delay(10);
+        // delay(10);
 
         
         printf ("\nReceiving data\n");
-        data = readByte(address, &data);
-        // printf("RECEIVED: %.2X\n",data);
+        data = readByte(address, data);
+        printf("RECEIVED: %.2X\n",data);
         //close(spi_fd);
-        delay(1);
+        // delay(10);
     }
     return 0;
 
