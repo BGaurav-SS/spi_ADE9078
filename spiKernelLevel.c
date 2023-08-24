@@ -20,10 +20,11 @@
 #define IRQ1B_PIN   3
 
 static char *spiDevice = "/dev/spidev0.0" ;
-static uint8_t spiMode = 1 ;
+static uint8_t spiMode = SPI_MODE_1;
 static uint8_t spiBPW = 8 ;
-static uint32_t spiSpeed = 500000 ;
+static uint32_t spiSpeed = 4000000 ;    //Speed set to 4.5MHz
 static uint16_t spiDelay = 0;
+static uint8_t spiLSBFirst = 0;
 
 
 int spi_fd;
@@ -51,6 +52,7 @@ static uint32_t readByte(uint16_t reg, uint32_t data){
     data = 0;
     
     //16-bit registers: 0x480 to 0x4FE.
+    printf("Here\n");
     if (reg >= 0x480 && reg <=0x4FE){
         numberOfBytes = 4; //8*4 = 32; 16-bits for command-header, 16-bits for data.
     }
@@ -77,7 +79,7 @@ static uint32_t readByte(uint16_t reg, uint32_t data){
 
     //Remaining slots in tx-buffer is filled with zeros.
     for (fillCounter=numberOfBytes; fillCounter > 2; fillCounter--){
-        *(spiBufTx+(numberOfBytes-1)) = 0;
+        *(spiBufTx+(fillCounter-1)) = 0;
     }
 
 
@@ -139,9 +141,9 @@ static void writeByte (uint16_t reg, uint32_t data){
     //If 16-bit data is stored in 32-bit DATA variable, the first 16-bits are 0.
     //Actual data is in the last 16-bits.
     for (fillCounter=numberOfBytes; fillCounter > 2; fillCounter--){
-        printf("Data %x\n", data);
+        //printf("Data %x\n", data);
         *(spiBufTx+(fillCounter-1)) = data & (0xFF);
-        printf("buffer %x\n", *(spiBufTx+(fillCounter-1)));
+        //printf("buffer %x\n", *(spiBufTx+(fillCounter-1)));
         data = (data >> 8);    
 
     }
@@ -156,10 +158,10 @@ static void writeByte (uint16_t reg, uint32_t data){
     
     // printf ("spi = %ul\n", &spi);
     // printf ("REg= %x\n", reg);
-    printf ("SPI transmit buffer B1= %x\n", *(spiBufTx + 2));
-    printf ("SPI transmit buffer B2= %x\n", *(spiBufTx + 3));
-    printf ("SPI transmit buffer B3= %x\n", *(spiBufTx + 4));
-    printf ("SPI transmit buffer B4= %x\n", *(spiBufTx + 5));
+    // printf ("SPI transmit buffer B1= %x\n", *(spiBufTx + 2));
+    // printf ("SPI transmit buffer B2= %x\n", *(spiBufTx + 3));
+    // printf ("SPI transmit buffer B3= %x\n", *(spiBufTx + 4));
+    // printf ("SPI transmit buffer B4= %x\n", *(spiBufTx + 5));
 
 }
 
@@ -174,9 +176,17 @@ static void writeByte (uint16_t reg, uint32_t data){
 */
 int spi_open(char* dev){
     if((spi_fd = open(dev, O_RDWR)) < 0){
-    printf("error opening %s\n",dev);
-    return -1;
+        printf("error opening %s\n",dev);
+        return -1;
     }
+    ioctl(spi_fd, SPI_IOC_WR_MODE, &spiMode);
+    // printf("Mode set to %d.\n", spiMode);
+
+    if (ioctl(spi_fd, SPI_IOC_WR_LSB_FIRST, &spiLSBFirst) == -1) {
+        perror("Error setting MSB-first bit order");
+        return 1;
+    }
+
     return 0;
 }
 
@@ -205,18 +215,19 @@ int main(int argc, char* argv[]){
 
     while (1){
         uint16_t address = ADDR_STATUS0;
-        uint32_t data = 0xFFFFFFFF;
+        uint32_t data = 0x01234567;
         printf ("Sending data %x to address %x. \n", data, address);
         writeByte (address, data) ;
-        // delay(10);
+        delay(10);
 
-        
+
         printf ("\nReceiving data\n");
         data = readByte(address, data);
         printf("RECEIVED: %.2X\n",data);
+
         //close(spi_fd);
-        // delay(10);
+        delay(10);
     }
     return 0;
-
 }
+

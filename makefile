@@ -17,7 +17,7 @@ wiringPi: spiWiringPi.c
 	$(CC) spiWiringPi.c -o ./build/spiWiringPi $(CFLAGS)
 	./build/spiWiringPi 
 
-test: test.c
-	$(CC) test.c -o ./test $(CFLAGS)
-	./test
+test: ptest.c
+	$(CC) ptest.c -o ./ptest $(CFLAGS)
+	./ptest --device /dev/spidev0.0 -s 1000000 -b 8 -v
 
