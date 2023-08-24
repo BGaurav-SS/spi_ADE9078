@@ -20,14 +20,39 @@
 #define IRQ1B_PIN   3
 
 static char *spiDevice = "/dev/spidev0.0" ;
-static uint8_t spiMode = SPI_MODE_1;
+static uint8_t spiMode = SPI_MODE_3;
 static uint8_t spiBPW = 8 ;
-static uint32_t spiSpeed = 4000000 ;    //Speed set to 4.5MHz
+static uint32_t spiSpeed = 100000 ; 
 static uint16_t spiDelay = 0;
 static uint8_t spiLSBFirst = 0;
 
 
 int spi_fd;
+
+/*spi_open
+* - Open the given SPI channel and configures it.
+* - there are normally two SPI devices on your PI:
+* /dev/spidev0.0: activates the CS0 pin during transfer
+* /dev/spidev0.1: activates the CS1 pin during transfer
+*
+*/
+int spi_open(char* dev){
+    if((spi_fd = open(dev, O_RDWR)) < 0){
+        printf("error opening %s\n",dev);
+        return -1;
+    }
+    ioctl(spi_fd, SPI_IOC_WR_MODE, &spiMode);
+    // printf("Mode set to %d.\n", spiMode);
+
+    if (ioctl(spi_fd, SPI_IOC_WR_LSB_FIRST, &spiLSBFirst) == -1) {
+        perror("Error setting MSB-first bit order");
+        return 1;
+    }
+
+    return 0;
+}
+
+
 
 int initialize (void){
     //Reset ADE9078
@@ -83,6 +108,8 @@ static uint32_t readByte(uint16_t reg, uint32_t data){
     }
 
 
+
+
     spi.tx_buf = (unsigned long)spiBufTx ;
     spi.rx_buf = (unsigned long)spiBufRx ;
     spi.len = numberOfBytes ;
@@ -91,6 +118,10 @@ static uint32_t readByte(uint16_t reg, uint32_t data){
     spi.bits_per_word = spiBPW ;
     ioctl (spi_fd, SPI_IOC_MESSAGE(1), &spi);
 
+    printf ("SPI receiver buffer B1= %x\n", *(spiBufRx + 2));
+    printf ("SPI receiver buffer B2= %x\n\n", *(spiBufRx + 3));
+    printf ("SPI receiver buffer B3= %x\n\n", *(spiBufRx + 4));
+    printf ("SPI receiver buffer B4= %x\n\n", *(spiBufRx + 5));
 
     for (fillCounter=2; fillCounter <numberOfBytes; fillCounter++){
         data = data << 8;
@@ -100,10 +131,6 @@ static uint32_t readByte(uint16_t reg, uint32_t data){
     return data;
 
 
-    // printf ("SPI receiver buffer B1= %x\n", *(spiBufRx + 2));
-    // printf ("SPI receiver buffer B2= %x\n\n", *(spiBufRx + 3));
-    // printf ("SPI receiver buffer B3= %x\n\n", *(spiBufRx + 4));
-    // printf ("SPI receiver buffer B4= %x\n\n", *(spiBufRx + 5));
 }
 
 
@@ -166,31 +193,6 @@ static void writeByte (uint16_t reg, uint32_t data){
 }
 
 
-
-/*spi_open
-* - Open the given SPI channel and configures it.
-* - there are normally two SPI devices on your PI:
-* /dev/spidev0.0: activates the CS0 pin during transfer
-* /dev/spidev0.1: activates the CS1 pin during transfer
-*
-*/
-int spi_open(char* dev){
-    if((spi_fd = open(dev, O_RDWR)) < 0){
-        printf("error opening %s\n",dev);
-        return -1;
-    }
-    ioctl(spi_fd, SPI_IOC_WR_MODE, &spiMode);
-    // printf("Mode set to %d.\n", spiMode);
-
-    if (ioctl(spi_fd, SPI_IOC_WR_LSB_FIRST, &spiLSBFirst) == -1) {
-        perror("Error setting MSB-first bit order");
-        return 1;
-    }
-
-    return 0;
-}
-
-
 int main(int argc, char* argv[]){
 
     wiringPiSetup();
@@ -214,12 +216,11 @@ int main(int argc, char* argv[]){
 
 
     while (1){
-        uint16_t address = ADDR_STATUS0;
-        uint32_t data = 0x01234567;
+        uint16_t address = ADDR_STATUS1;
+        uint32_t data = 0xFFFFFFFF;
         printf ("Sending data %x to address %x. \n", data, address);
         writeByte (address, data) ;
         delay(10);
-
 
         printf ("\nReceiving data\n");
         data = readByte(address, data);
