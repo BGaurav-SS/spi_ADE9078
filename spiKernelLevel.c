@@ -19,13 +19,18 @@
 //Use wiringPi pin 3; physical pin 15 as pin to read interrupt from IRQ1B pin.
 #define IRQ1B_PIN   3
 
-static char *spiDevice = "/dev/spidev0.0" ;
+// static char *spiDevice = "/dev/spidev0.0" ;
 static uint8_t spiMode = SPI_MODE_3;
 static uint8_t spiBPW = 8 ;
 static uint32_t spiSpeed = 100000 ; 
 static uint16_t spiDelay = 0;
 static uint8_t spiLSBFirst = 0;
 
+
+static uint32_t readByte(uint16_t reg, uint32_t data);
+static void writeByte (uint16_t reg, uint32_t data);
+int spi_open(char* dev);
+int initialize (void);
 
 int spi_fd;
 
@@ -66,6 +71,7 @@ int initialize (void){
     while (digitalRead(IRQ1B_PIN) != 0){
         //Wait until the RESET_DONE signal is generated.
     }
+    printf("RESET_DONE.\n");
 
     return 1;
 }
@@ -77,7 +83,6 @@ static uint32_t readByte(uint16_t reg, uint32_t data){
     data = 0;
     
     //16-bit registers: 0x480 to 0x4FE.
-    printf("Here\n");
     if (reg >= 0x480 && reg <=0x4FE){
         numberOfBytes = 4; //8*4 = 32; 16-bits for command-header, 16-bits for data.
     }
@@ -118,10 +123,10 @@ static uint32_t readByte(uint16_t reg, uint32_t data){
     spi.bits_per_word = spiBPW ;
     ioctl (spi_fd, SPI_IOC_MESSAGE(1), &spi);
 
-    printf ("SPI receiver buffer B1= %x\n", *(spiBufRx + 2));
-    printf ("SPI receiver buffer B2= %x\n\n", *(spiBufRx + 3));
-    printf ("SPI receiver buffer B3= %x\n\n", *(spiBufRx + 4));
-    printf ("SPI receiver buffer B4= %x\n\n", *(spiBufRx + 5));
+    // printf ("SPI receiver buffer B1= %x\n", *(spiBufRx + 2));
+    // printf ("SPI receiver buffer B2= %x\n\n", *(spiBufRx + 3));
+    // printf ("SPI receiver buffer B3= %x\n\n", *(spiBufRx + 4));
+    // printf ("SPI receiver buffer B4= %x\n\n", *(spiBufRx + 5));
 
     for (fillCounter=2; fillCounter <numberOfBytes; fillCounter++){
         data = data << 8;
@@ -195,39 +200,40 @@ static void writeByte (uint16_t reg, uint32_t data){
 
 int main(int argc, char* argv[]){
 
+    if(argc <= 1){
+        printf("Too few args, try %s /dev/spidev0.0\n",argv[0]);
+        return -1;
+    }
+
     wiringPiSetup();
     pinMode(RESET_PIN, OUTPUT);
     pinMode(IRQ1B_PIN, INPUT);
+
 
     if (initialize() != 1){
         printf("Error initializing the device.\n");
         return -1;
     }
 
-    if(argc <= 1){
-        printf("Too few args, try %s /dev/spidev0.0\n",argv[0]);
-        return -1;
-    }
     // open and configure SPI channel. (/dev/spidev0.0 for example)
     if(spi_open(argv[1]) < 0){
         printf("SPI_open failed\n");
         return -1;
     }
 
-
+    // uint32_t data = (1 << 16);
     while (1){
-        uint16_t address = ADDR_STATUS1;
-        uint32_t data = 0xFFFFFFFF;
-        printf ("Sending data %x to address %x. \n", data, address);
-        writeByte (address, data) ;
-        delay(10);
+        // uint16_t address = ADDR_STATUS1 ;
+        printf ("\nSending data...") ;
+        writeByte (ADDR_STATUS1, (1<<16)) ;
+        // delay(50);
+    
+        // printf ("Receiving data\n");
+        // data = readByte(address, data);
+        // printf("RECEIVED: %.2X\n",data);
 
-        printf ("\nReceiving data\n");
-        data = readByte(address, data);
-        printf("RECEIVED: %.2X\n",data);
-
-        //close(spi_fd);
-        delay(10);
+        // //close(spi_fd);
+        // delay(10);
     }
     return 0;
 }
