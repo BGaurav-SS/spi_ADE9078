@@ -27,8 +27,8 @@ static uint16_t spiDelay = 0;
 static uint8_t spiLSBFirst = 0;
 
 
-static uint32_t readByte(uint16_t reg, uint32_t data);
-static int writeByte (uint32_t reg, uint32_t data);
+static uint32_t readByte(uint16_t reg, uint32_t* data);
+static uint32_t writeByte (uint32_t reg, uint32_t data);
 int spi_open(char* dev);
 int initialize (void);
 
@@ -70,9 +70,10 @@ int initialize (void){
 
 
 
-static uint32_t readByte(uint16_t reg, uint32_t data){
-    int numberOfBytes = 0;
-    data = 0;
+static uint32_t readByte(uint16_t reg, uint32_t* data){
+    
+    int error, numberOfBytes = 0;
+    *data = 0;
     
     //16-bit registers: 0x480 to 0x4FE.
     if (reg >= 0x480 && reg <=0x4FE){
@@ -83,12 +84,13 @@ static uint32_t readByte(uint16_t reg, uint32_t data){
         numberOfBytes = 6; //8*6 = 48; 16-bits for command-header, 32-bits for data.
     }
 
+    struct spi_ioc_transfer spi = {0};
+
     uint8_t spiBufTx [numberOfBytes] ;
     uint8_t spiBufRx [numberOfBytes] ;
     int fillCounter=numberOfBytes;
 
 
-    struct spi_ioc_transfer spi;
     //First byte of the command header.
     //It is the MSB of the address.
     *(spiBufTx) = (reg >> 4);
@@ -104,53 +106,55 @@ static uint32_t readByte(uint16_t reg, uint32_t data){
         *(spiBufTx+(fillCounter-1)) = 0;
     }
 
-
-
-
     spi.tx_buf = (unsigned long)spiBufTx ;
     spi.rx_buf = (unsigned long)spiBufRx ;
     spi.len = numberOfBytes ;
     spi.delay_usecs = spiDelay ;
     spi.speed_hz = spiSpeed ;
     spi.bits_per_word = spiBPW ;
-    ioctl (spi_fd, SPI_IOC_MESSAGE(1), &spi);
 
+    if ((error = ioctl(spi_fd, SPI_IOC_MESSAGE(1), &spi)) < 0){
+        printf("Failed: Writing into register 0x%x.\n", reg);
+        printf("Error: %s\n\n", strerror(errno));
+        return -1;
+    }
     // printf ("SPI receiver buffer B1= %x\n", *(spiBufRx + 2));
     // printf ("SPI receiver buffer B2= %x\n\n", *(spiBufRx + 3));
     // printf ("SPI receiver buffer B3= %x\n\n", *(spiBufRx + 4));
     // printf ("SPI receiver buffer B4= %x\n\n", *(spiBufRx + 5));
 
     for (fillCounter=2; fillCounter <numberOfBytes; fillCounter++){
-        data = data << 8;
-        data += *(spiBufRx  + fillCounter);
+        *data = *data << 8;
+        *data += *(spiBufRx  + fillCounter);
     }   
     
-    return data;
-
-
+    return 0;
 }
 
 
 
-static int writeByte (uint32_t reg, uint32_t data){
+static uint32_t writeByte (uint32_t reg, uint32_t data){
 
     int numberOfBytes = 0;
     int error;
 
     //16-bit registers: 0x480 to 0x4FE.
     if (reg >= 0x480 && reg <=0x4FE){
-        numberOfBytes = 4; //8*4 = 32; 16-bits for command-header, 16-bits for data.
+        //8-bits*4 = 32-bits; 16-bits for command-header, 16-bits for data.
+        numberOfBytes = 4; 
     }
 
     else{
-        numberOfBytes = 6; //8*6 = 48; 16-bits for command-header, 32-bits for data.
+        //8-bits*6 = 48-bits; 16-bits for command-header, 32-bits for data.
+        numberOfBytes = 6; 
     }
+    
+    struct spi_ioc_transfer spi = {0} ;
 
     uint8_t spiBufTx [numberOfBytes] ;
     uint8_t spiBufRx [numberOfBytes] ;
     int fillCounter = numberOfBytes;
 
-    struct spi_ioc_transfer spi ;
     
     //First byte of the command header.
     //It is the MSB of the address.
@@ -169,19 +173,17 @@ static int writeByte (uint32_t reg, uint32_t data){
         //printf("Data %x\n", data);
         *(spiBufTx+(fillCounter-1)) = data & (0xFF);
         //printf("buffer %x\n", *(spiBufTx+(fillCounter-1)));
-        data = (data >> 8);    
-
+        data = (data >> 8);
     }
 
-    spi.tx_buf       = (unsigned long int)spiBufTx ;
-    spi.rx_buf       = (unsigned long int)spiBufRx ;
+    spi.tx_buf       = (unsigned long)spiBufTx ;
+    spi.rx_buf       = (unsigned long)spiBufRx ;
     spi.len          = numberOfBytes ;
     spi.delay_usecs  = spiDelay ;
     spi.speed_hz     = spiSpeed ;
     spi.bits_per_word= spiBPW ;
 
     if ((error = ioctl(spi_fd, SPI_IOC_MESSAGE(1), &spi)) < 0){
-        // printf("%d\n", error);
         printf("Failed: Writing into register 0x%x.\n", reg);
         printf("Error: %s\n\n", strerror(errno));
         return -1;
@@ -193,11 +195,14 @@ static int writeByte (uint32_t reg, uint32_t data){
     // printf ("SPI transmit buffer B2= %x\n", *(spiBufTx + 3));
     // printf ("SPI transmit buffer B3= %x\n", *(spiBufTx + 4));
     // printf ("SPI transmit buffer B4= %x\n", *(spiBufTx + 5));
+
     return 0;
 }
 
 
 int main(int argc, char* argv[]){
+
+    uint32_t data;
 
     if(argc <= 1){
         printf("Too few args, try %s /dev/spidev0.0\n",argv[0]);
@@ -223,28 +228,27 @@ int main(int argc, char* argv[]){
         return -1;
     }
     printf("Success: Opening SPI port.\n\n");
+    delay(1000);
 
-    //Turning the IRQ1B LED off.
-    // if(writeByte (ADDR_STATUS1, (1<<16)) < 0){
-    //     return -1;
-    // }
+    // Turning the IRQ1B LED off.
+    if(writeByte (ADDR_STATUS1, (1<<16)) < 0){
+        return -1;
+    }
 
     while (1){
-        // printf ("\n.") ;
-        if(writeByte (ADDR_STATUS1, (1<<16)) < 0){
+
+        printf ("Writing data\n\n");
+        if((writeByte (ADDR_PGA_GAIN, 0xF0F0) < 0)){
             return -1;
         }
+        delay(10);
 
+        printf ("Receiving data\n");
+        readByte(ADDR_PGA_GAIN, &data);
+        printf("RECEIVED: %.2X\n\n",data);
 
-        // writeByte (ADDR_PGA_GAIN, (1<<3)) ;
-        // delay(50);
-    
-        // printf ("Receiving data\n");
-        // data = readByte(address, data);
-        // printf("RECEIVED: %.2X\n",data);
-
-        // //close(spi_fd);
-        // delay(10);
+        //close(spi_fd);
+        delay(10);
     }
     return 0;
 }
