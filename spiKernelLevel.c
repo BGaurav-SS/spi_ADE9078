@@ -9,6 +9,7 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <errno.h>
 #include <stdint.h>
 #include "registerMap.h"
 
@@ -19,61 +20,52 @@
 //Use wiringPi pin 3; physical pin 15 as pin to read interrupt from IRQ1B pin.
 #define IRQ1B_PIN   3
 
-// static char *spiDevice = "/dev/spidev0.0" ;
 static uint8_t spiMode = SPI_MODE_3;
 static uint8_t spiBPW = 8 ;
-static uint32_t spiSpeed = 100000 ; 
+static uint32_t spiSpeed = 1000000 ; 
 static uint16_t spiDelay = 0;
 static uint8_t spiLSBFirst = 0;
 
 
 static uint32_t readByte(uint16_t reg, uint32_t data);
-static void writeByte (uint16_t reg, uint32_t data);
+static int writeByte (uint32_t reg, uint32_t data);
 int spi_open(char* dev);
 int initialize (void);
 
 int spi_fd;
 
-/*spi_open
-* - Open the given SPI channel and configures it.
-* - there are normally two SPI devices on your PI:
-* /dev/spidev0.0: activates the CS0 pin during transfer
-* /dev/spidev0.1: activates the CS1 pin during transfer
-*
-*/
+
 int spi_open(char* dev){
     if((spi_fd = open(dev, O_RDWR)) < 0){
         printf("error opening %s\n",dev);
         return -1;
     }
-    ioctl(spi_fd, SPI_IOC_WR_MODE, &spiMode);
-    // printf("Mode set to %d.\n", spiMode);
 
-    if (ioctl(spi_fd, SPI_IOC_WR_LSB_FIRST, &spiLSBFirst) == -1) {
-        perror("Error setting MSB-first bit order");
-        return 1;
+    if(ioctl(spi_fd, SPI_IOC_WR_MODE, &spiMode)){
+        printf("Error setting SPI mode %d.\n", spiMode);
+        return -1;
     }
 
+    if (ioctl(spi_fd, SPI_IOC_WR_LSB_FIRST, &spiLSBFirst) == -1) {
+        printf("Error setting MSB-first bit order\n");
+        return -1;
+    }
     return 0;
 }
-
 
 
 int initialize (void){
     //Reset ADE9078
     digitalWrite(RESET_PIN, LOW);
-    delay(50);
+    delay(5);
     digitalWrite(RESET_PIN, HIGH);
-    delay(50);
+    delay(5);
 
-
-    printf("\nWaiting for RESET_DONE signal.\n");
-    while (digitalRead(IRQ1B_PIN) != 0){
-        //Wait until the RESET_DONE signal is generated.
-    }
-    printf("RESET_DONE.\n");
-
-    return 1;
+    printf("\nWaiting for RESET_DONE signal.\n");    
+    //Wait until the RESET_DONE signal is generated.
+    while (digitalRead(IRQ1B_PIN) != 0){}
+    printf("RESET DONE.\n");
+    return 0;
 }
 
 
@@ -140,9 +132,10 @@ static uint32_t readByte(uint16_t reg, uint32_t data){
 
 
 
-static void writeByte (uint16_t reg, uint32_t data){
+static int writeByte (uint32_t reg, uint32_t data){
 
     int numberOfBytes = 0;
+    int error;
 
     //16-bit registers: 0x480 to 0x4FE.
     if (reg >= 0x480 && reg <=0x4FE){
@@ -160,7 +153,7 @@ static void writeByte (uint16_t reg, uint32_t data){
     struct spi_ioc_transfer spi ;
     
     //First byte of the command header.
-    //It is the MSB of the address .
+    //It is the MSB of the address.
     *(spiBufTx) = (reg >> 4);
 
     //Second byte of the command header.
@@ -180,13 +173,19 @@ static void writeByte (uint16_t reg, uint32_t data){
 
     }
 
-    spi.tx_buf       = (unsigned long)spiBufTx ;
-    spi.rx_buf       = (unsigned long)spiBufRx ;
+    spi.tx_buf       = (unsigned long int)spiBufTx ;
+    spi.rx_buf       = (unsigned long int)spiBufRx ;
     spi.len          = numberOfBytes ;
     spi.delay_usecs  = spiDelay ;
     spi.speed_hz     = spiSpeed ;
     spi.bits_per_word= spiBPW ;
-    ioctl (spi_fd, SPI_IOC_MESSAGE(1), &spi) ;
+
+    if ((error = ioctl(spi_fd, SPI_IOC_MESSAGE(1), &spi)) < 0){
+        // printf("%d\n", error);
+        printf("Failed: Writing into register 0x%x.\n", reg);
+        printf("Error: %s\n\n", strerror(errno));
+        return -1;
+    }
     
     // printf ("spi = %ul\n", &spi);
     // printf ("REg= %x\n", reg);
@@ -194,7 +193,7 @@ static void writeByte (uint16_t reg, uint32_t data){
     // printf ("SPI transmit buffer B2= %x\n", *(spiBufTx + 3));
     // printf ("SPI transmit buffer B3= %x\n", *(spiBufTx + 4));
     // printf ("SPI transmit buffer B4= %x\n", *(spiBufTx + 5));
-
+    return 0;
 }
 
 
@@ -210,22 +209,34 @@ int main(int argc, char* argv[]){
     pinMode(IRQ1B_PIN, INPUT);
 
 
-    if (initialize() != 1){
+    if (initialize() != 0){
         printf("Error initializing the device.\n");
         return -1;
     }
+    printf("Success: Device Initialization.\n\n");
+
 
     // open and configure SPI channel. (/dev/spidev0.0 for example)
+    printf("Opening SPI port...\n");
     if(spi_open(argv[1]) < 0){
         printf("SPI_open failed\n");
         return -1;
     }
+    printf("Success: Opening SPI port.\n\n");
 
-    // uint32_t data = (1 << 16);
+    //Turning the IRQ1B LED off.
+    // if(writeByte (ADDR_STATUS1, (1<<16)) < 0){
+    //     return -1;
+    // }
+
     while (1){
-        // uint16_t address = ADDR_STATUS1 ;
-        printf ("\nSending data...") ;
-        writeByte (ADDR_STATUS1, (1<<16)) ;
+        // printf ("\n.") ;
+        if(writeByte (ADDR_STATUS1, (1<<16)) < 0){
+            return -1;
+        }
+
+
+        // writeByte (ADDR_PGA_GAIN, (1<<3)) ;
         // delay(50);
     
         // printf ("Receiving data\n");
