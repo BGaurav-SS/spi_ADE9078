@@ -1,20 +1,3 @@
-/* ================================================================================
-
-     Project      :   ade90xx
-     File         :   ade90xx.h
-     Description  :   API macros header definition register file.
-
-     Date         :   May 3, 2016
-
-     Copyright (c) 2016 Analog Devices, Inc.  All Rights Reserved.
-     This software is proprietary and confidential to Analog Devices, Inc. and
-     its licensors.
-
-     This file was auto-generated. Do not make local changes to this file.
-
-   ================================================================================ */
-
-
 #define ADDR_AIGAIN                          0x00000000            /*  Phase A current gain adjust. */
 #define ADDR_AIGAIN0                         0x00000001            /*  If multipoint gain and phase compensation is enabled, with MTEN = 1 in the CONFIG0 register, an additional gain factor, AIGAIN0 through AIGAIN5, is applied based on the AIRMS current rms amplitude and the MTTHR_Lx and MTTHR_Hx register values */
 #define ADDR_AIGAIN1                         0x00000002            /*  Phase A Multipoint gain correction factor--see AIGAIN0. */
@@ -459,6 +442,3 @@
 #define ADDR_NIRMS_2                         0x000006BA            /*  SPI Burst Read Accessible. Registers organized by phase. See NIRMS. */
 #define ADDR_NIRMSONE_2                      0x000006BB            /*  SPI Burst Read Accessible. Registers organized by phase. See NIRMSONE. */
 #define ADDR_NIRMS1012_2                     0x000006BC            /*  SPI Burst Read Accessible. Registers organized by phase. See NIRMS1012. */
-
-
-

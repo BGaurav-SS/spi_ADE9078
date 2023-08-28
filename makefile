@@ -1,23 +1,15 @@
 CC=gcc
 CFLAGS=-lwiringPi
-file=spiKernelLevel
+app=spiApp
+lib=spiADE9078
 
-$(file): $(file).c
-	$(CC) $(file).c -o ./build/$(file) $(CFLAGS)
-	./build/$(file) /dev/spidev0.0
+$(app): $(app).o $(lib).o 
+	$(CC) $(app).o $(lib).o -o ./build/$(app) $(CFLAGS) 
+	./build/$(app) /dev/spidev0.0
 
-build: $(file).c
-	$(CC) $(file).c -o ./build/$(file) $(CFLAGS)
+$(app).o: $(app).c
+	$(CC) -c $(app).c
 
-speed: spiSpeed.c
-	$(CC) spiSpeed.c -o ./build/spiSpeed $(CFLAGS)
-	./build/spiSpeed -D /dev/spidev0.0
-
-wiringPi: spiWiringPi.c
-	$(CC) spiWiringPi.c -o ./build/spiWiringPi $(CFLAGS)
-	./build/spiWiringPi 
-
-test: ptest.c
-	$(CC) ptest.c -o ./ptest $(CFLAGS)
-	./ptest --device /dev/spidev0.0 -s 1000000 -b 8 -v
+$(lib).o: $(lib).c $(lib).h
+	$(CC) -c $(lib).c
 
