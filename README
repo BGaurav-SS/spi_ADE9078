@@ -1,0 +1,41 @@
+This repository contains the code for reading/writing on ADE9078 via SPI bus.
+
+ADE9078 evaluation board is used for testing purpose.
+    Evaluation board datasheet: https://www.analog.com/media/en/technical-documentation/user-guides/EVAL-ADE9078EBZ-UG-953.pdf
+    ADE9078 datasheet:  https://www.analog.com/media/en/technical-documentation/data-sheets/ADE9078.pdf
+
+The code is tested on Raspberry Pi.(wiringPi is used for setting the GPIOs.)
+You may need to install the kernel-headers if not installed before.
+
+##########################################################################################
+
+spiADE9078.h
+    --Header file with the functions declaration.
+spiADE9078.c
+    --Defination of the functions.
+spiApp.c
+    --Sample application to write into VLEVEL register and read back the same register.
+
+##########################################################################################
+
+To test the sample application, follow the steps below:
+    1. 5V-DC is provided to the Evaluation Board through the VBUS and DGND pins.
+
+    ------------!!! WARNING !!!-----------
+    Providing 5V power through Pi's 5V pins maynot work since they have limited current capacity.
+    It is recommended to use a dedicated power adapter.
+    If the connection is done properly, CR1, CR8, CR9 LED should light up.
+    
+    2. SPI connections are made through P2 interface. Use appropriate header pins to use P2 interface.
+    3. PM0_ISO and PM1_ISO pins are connected to the DGND.
+    4. Evaluation Board <-------> Raspberry Pi connection.
+
+            SSB_ISO <-------> Physical Pin 24.
+            MOSI_ISO <-------> Physical Pin 19.
+            MISO_ISO <-------> Physical Pin 21.
+            SCLK_ISO <-------> Physical Pin 23.
+            IRQ1B_ISO <-------> Physical Pin 15.
+            RESETB_ISO <-------> Physical Pin 22.
+            DGND <-------> Ground Pin.
+
+    5. make
