@@ -1,5 +1,4 @@
 .vscode/
-build/
 ptest*
 sample*
 spiSpeed.c

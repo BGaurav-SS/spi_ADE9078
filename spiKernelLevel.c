@@ -98,12 +98,13 @@ static uint32_t readByte(uint16_t reg, uint32_t* data){
     //Second byte of the command header.
     //The last 4-bits of address.
     //Read/write selection bit.
-    //Remaining 4 bits are ignored.
+    //Remaining 3 bits are ignored.
     *(spiBufTx+1) = (((reg << 4) & 0x00F0)) | 0x0008;
 
-    //Remaining slots in tx-buffer is filled with zeros.
+    //Remaining slots in tx-buffer is filled with ones.
+    //This is specified in the datasheet.
     for (fillCounter=numberOfBytes; fillCounter > 2; fillCounter--){
-        *(spiBufTx+(fillCounter-1)) = 0;
+        *(spiBufTx+(fillCounter-1)) = 0xFF;
     }
 
     spi.tx_buf = (unsigned long)spiBufTx ;
@@ -146,7 +147,7 @@ static uint32_t writeByte (uint32_t reg, uint32_t data){
 
     else{
         //8-bits*6 = 48-bits; 16-bits for command-header, 32-bits for data.
-        numberOfBytes = 6; 
+        numberOfBytes = 6;
     }
     
     struct spi_ioc_transfer spi = {0} ;
