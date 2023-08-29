@@ -1,16 +1,16 @@
+/*  This example application illustrates the use of spiADE9078 library.
+    The ADE9078 datasheet recommends to use 0x117514 for VLEVEL register.
+    In writing process, this value is written to the specified register.
+    In reading process, the same register is read back.
+
+    Note that the VLEVEL register has [31:24] bits reserved. These are set 0 during reset and are read-only.
+    So, these bits always read 0.
+*/
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
-#include <fcntl.h>
-#include <getopt.h>
-#include <sys/ioctl.h>
-#include <linux/spi/spidev.h>
-#include <linux/types.h>
-#include <sys/mman.h>
-#include <sys/stat.h>
-#include <unistd.h>
-#include <errno.h>
 
 #include <wiringPi.h>
 #include "spiADE9078.h"

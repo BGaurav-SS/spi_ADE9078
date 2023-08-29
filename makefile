@@ -1,15 +1,14 @@
 CC=gcc
 CFLAGS=-lwiringPi
-app=spiApp
+example=exampleApplication
 lib=spiADE9078
 
-$(app): $(app).o $(lib).o 
-	$(CC) $(app).o $(lib).o -o ./build/$(app) $(CFLAGS) 
-	./build/$(app) /dev/spidev0.0
+example: $(example).o $(lib).o
+	$(CC) $(example).o $(lib).o -o ./build/$(example) $(CFLAGS)
+	./build/$(example) /dev/spidev0.0
 
-$(app).o: $(app).c
-	$(CC) -c $(app).c
+$(example).o: $(example).c
+	$(CC) -c $(example).c
 
 $(lib).o: $(lib).c $(lib).h
 	$(CC) -c $(lib).c
-

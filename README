@@ -29,7 +29,6 @@ To test the sample application, follow the steps below:
     2. SPI connections are made through P2 interface. Use appropriate header pins to use P2 interface.
     3. PM0_ISO and PM1_ISO pins are connected to the DGND.
     4. Evaluation Board <-------> Raspberry Pi connection.
-
             SSB_ISO <-------> Physical Pin 24.
             MOSI_ISO <-------> Physical Pin 19.
             MISO_ISO <-------> Physical Pin 21.
@@ -37,5 +36,4 @@ To test the sample application, follow the steps below:
             IRQ1B_ISO <-------> Physical Pin 15.
             RESETB_ISO <-------> Physical Pin 22.
             DGND <-------> Ground Pin.
-
     5. make
